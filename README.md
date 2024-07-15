@@ -13,10 +13,6 @@ This repository contains the code of a TFM focused on the implementation and ana
 2. [Installation](#installation)
 3. [Usage](#usage)
 4. [Project structure](#project-structure)
-5. [Hyperparameter optimisation](#hyperparameter-optimisation)
-6. [Training](#training)
-7. [Results](#results)
-8. [Conclusions](#conclusions)
 
 ### Introduction
 
