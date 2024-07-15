@@ -32,7 +32,7 @@ torch.use_deterministic_algorithms(True)
 class EarlyStopping:
     def __init__(self, patience=7, delta=0):
         """
-        Early stops the training if validation reward doesn't improve after a given patience.
+        Early stopping criterion based on validation reward. Early stops the training if validation reward doesn't improve after a given patience.
 
         Args:
             patience (int): How long to wait after last time validation reward improved.
@@ -47,6 +47,15 @@ class EarlyStopping:
         self.delta = delta
 
     def __call__(self, val_reward):
+        """
+        Checks if the validation reward has improved.
+        
+        Args:
+            val_reward (float): Current validation reward to compare with the best score.
+        
+        Returns:
+            early_stop (bool): True if early stopping criteria are met, False otherwise.
+        """
         score = val_reward
 
         if self.best_score is None:
@@ -63,6 +72,9 @@ class EarlyStopping:
     
 
 class PPOAgent:
+    """
+    Implementation of the Proximal Policy Optimization (PPO) agent for reinforcement learning.
+    """
     DEFAULTS = {
         'actor_lr': 0.005,
         'critic_lr': 0.005,
@@ -87,6 +99,17 @@ class PPOAgent:
         'early_stopping_delta': 0
     }
     def __init__(self, actor_model, critic_model, log_dir='runs\\ppo_experiment', purge_step=None, smoothing_factor=0.2, **kwargs):
+        """
+        Initializes PPOAgent with actor and critic models, hyperparameters, and logging settings.
+
+        Args:
+            actor_model (torch.nn.Module): PyTorch model for the actor (policy) network.
+            critic_model (torch.nn.Module): PyTorch model for the critic (value) network.
+            log_dir (str): Directory path for TensorBoard logging.
+            purge_step (int or None): Step number to purge from SummaryWriter history.
+            smoothing_factor (float): Smoothing factor for Exponentially Moving Average of rewards.
+            **kwargs: Custom hyperparameters to override defaults in DEFAULTS.
+        """
         self.params = {**self.DEFAULTS, **kwargs}
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -97,6 +120,7 @@ class PPOAgent:
         self.actor_optimizer = optim.Adam(self.actor_model.parameters(), lr=self.params['actor_lr'])
         self.critic_optimizer = optim.Adam(self.critic_model.parameters(), lr=self.params['critic_lr'])
 
+        # Initialize learning rate schedulers based on decay_method
         if self.params['decay_method'] is not None:
             if self.params['decay_method'] == 'plateau':
                 self.actor_scheduler = ReduceLROnPlateau(optimizer=self.actor_optimizer, mode='max', factor=self.params['plateau_factor'], patience=self.params['plateau_patience'], verbose=False)
@@ -214,7 +238,23 @@ class PPOAgent:
     
 
     def _learn_batch(self, observations, advantages, returns, actions, old_probs):
-        
+        """
+        Performs a batch update of actor and critic models.
+
+        Args:
+            observations (torch.Tensor): Input observations.
+            advantages (torch.Tensor): Advantage estimates for actions taken.
+            returns (torch.Tensor): Target returns.
+            actions (torch.Tensor): Actions taken by the policy.
+            old_probs (torch.Tensor): Probabilities from the old policy.
+
+        Returns:
+            reg_actor_loss (float): Regularized actor loss.
+            actor_loss (float): Actor loss.
+            policy_loss (float): Policy loss.
+            entropy_bonus (float): Entropy bonus.
+            critic_loss (float): Critic loss.
+        """
         # Zero the gradients before the backward pass
         self.actor_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
@@ -244,6 +284,21 @@ class PPOAgent:
     
 
     def validation(self, env, images, fps=30, episodes=10, plot=True, verbose=True, global_step=None):
+        """
+        Executes validation of the agent on the given environment.
+
+        Args:
+            env: Environment instance for validation.
+            images: Images or templates used for visualization.
+            fps (int): Frames per second for visualization.
+            episodes (int): Number of episodes to run for validation.
+            plot (bool): Whether to visualize the environment during validation.
+            verbose (bool): Whether to print verbose output.
+            global_step (int or None): Global step number for TensorBoard logging.
+
+        Returns:
+            avg_val_ep_reward (float): Average validation episode reward.
+        """
         # Switch to validation mode
         self.actor_model.eval()
         self.critic_model.eval()
@@ -310,6 +365,23 @@ class PPOAgent:
     
 
     def train(self, train_env, val_env, val_images, val_fps=30, val_plot=False, val_verbose=False, save_path=None, updates_per_flush=20):
+        """
+        Trains the PPO agent on the training environment and validates periodically.
+
+        Args:
+            train_env: Training environment instance.
+            val_env: Validation environment instance.
+            val_images: Images or templates used for validation visualization.
+            val_fps (int): Frames per second for validation visualization.
+            val_plot (bool): Whether to plot validation episodes.
+            val_verbose (bool): Whether to print validation verbose output.
+            save_path (str or None): Directory to save trained models.
+            updates_per_flush (int): Number of updates per flush to TensorBoard.
+
+        Returns:
+            update_rewards (list): List of average rewards per update during training.
+            val_rewards (list): List of validation rewards achieved during training.
+        """
         if save_path is not None:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
@@ -449,6 +521,17 @@ class PPOAgent:
     
 
     def _get_avg_reward(self, rewards, dones):
+        """
+        Computes the average reward and episode length.
+
+        Args:
+            rewards (list): List of rewards received during episodes.
+            dones (list): List of terminal states (True if episode ended).
+
+        Returns:
+            avg_reward (float): Average reward per episode.
+            avg_ep_length (float): Average episode length.
+        """
         # Identify the indices where `dones` is True
         end_indices = (dones == 1).nonzero(as_tuple=True)[0]
         # Sum the values within each segment and compute the average of these sums
@@ -463,6 +546,12 @@ class PPOAgent:
     
 
     def load_checkpoint(self, checkpoint_path):
+        """
+        Loads model checkpoints from the specified path.
+
+        Args:
+            checkpoint_path (str): File path to the checkpoint.
+        """
         checkpoint = torch.load(checkpoint_path)
         self.actor_model.load_state_dict(checkpoint['actor_state_dict'])
         self.critic_model.load_state_dict(checkpoint['critic_state_dict'])
@@ -473,6 +562,8 @@ class PPOAgent:
     
 
     def close_writer(self):
-        # Closes the SummaryWriter object when the training is finished.
+        """
+        Closes the SummaryWriter object when the training is finished.
+        """
         self.writer.close()
 
