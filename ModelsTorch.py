@@ -43,8 +43,20 @@ def initialized_layer(layer, init='orthogonal', gain=np.sqrt(2)):
 
     return layer
 
-# MainBlock class defining the core structure of neural network layers  
 class MainBlock(nn.Module):
+    """
+    MainBlock class defines the core structure of neural network layers.
+
+    Args:
+    - input_size: Size of the input layer.
+    - hidden_sizes: List of sizes for hidden layers.
+    - dropout_prob: Dropout probability. Default is 0.0 (no dropout).
+    - activation: Activation function. Options: 'tanh', 'lrelu'. Default is 'tanh'.
+    - lrelu: LeakyReLU slope parameter. Default is 0.01.
+    - bn: Boolean indicating if BatchNormalization is used. Default is False.
+    - momentum: Momentum for BatchNormalization. Default is 0.9.
+    - initialization: Weight initialization method. Options: 'orthogonal', 'normal', 'uniform'. Default is 'normal'.
+    """
     def __init__(self, input_size, hidden_sizes, dropout_prob=0.0, activation='tanh', lrelu=0.01, bn=False, momentum=0.9, initialization='normal', **kwargs):
         super(MainBlock, self).__init__()
         self.layers = nn.ModuleList()
@@ -69,14 +81,36 @@ class MainBlock(nn.Module):
     
 
     def forward(self, x):
+        """
+        Forward pass through the MainBlock layers.
+
+        Args:
+        - x: Input tensor.
+
+        Returns:
+        - x: Output tensor after passing through all layers.
+        """
         for layer in self.layers:
             x = layer(x)
 
         return x
 
 
-# Actor class representing the policy network
 class Actor(nn.Module):
+    """
+    Actor class represents the policy network for the PPO algorithm.
+
+    Args:
+    - input_size: Size of the input state.
+    - hidden_sizes: List of sizes for hidden layers.
+    - output_size: Size of the output (number of actions).
+    - dropout_prob: Dropout probability. Default is 0.0 (no dropout).
+    - activation: Activation function. Options: 'tanh', 'lrelu'. Default is 'tanh'.
+    - lrelu: LeakyReLU slope parameter. Default is 0.01.
+    - bn: Boolean indicating if BatchNormalization is used. Default is False.
+    - momentum: Momentum for BatchNormalization. Default is 0.95.
+    - initialization: Weight initialization method. Options: 'orthogonal', 'normal', 'uniform'. Default is 'orthogonal'.
+    """
     DEFAULTS = {
     'input_size': 8,
     'hidden_sizes': [256, 128, 64],
@@ -102,6 +136,15 @@ class Actor(nn.Module):
     
 
     def forward(self, x):
+        """
+        Forward pass through the Actor network.
+
+        Args:
+        - x: Input state tensor.
+
+        Returns:
+        - x: Output probability distribution over actions.
+        """
         x = self.main_block(x)
         x = self.output_layer(x)
         x = self.softmax(x)  # Tensor of probabilities
@@ -110,6 +153,15 @@ class Actor(nn.Module):
 
 
     def get_action(self, state):
+        """
+        Sample an action from the Actor's policy distribution.
+
+        Args:
+        - state: Input state tensor.
+
+        Returns:
+        - action: Sampled action.
+        """
         # Get the categorical distribution for the current state
         dist = torch.distributions.Categorical(self.forward(state))
         # Sample an action
@@ -118,8 +170,21 @@ class Actor(nn.Module):
         return action
 
 
-# Critic class representing the value network
 class Critic(nn.Module):
+    """
+    Critic class represents the value network for the PPO algorithm.
+
+    Args:
+    - input_size: Size of the input state.
+    - hidden_sizes: List of sizes for hidden layers.
+    - output_size: Size of the output (1 for value estimation).
+    - dropout_prob: Dropout probability. Default is 0.0 (no dropout).
+    - activation: Activation function. Options: 'tanh', 'lrelu'. Default is 'tanh'.
+    - lrelu: LeakyReLU slope parameter. Default is 0.01.
+    - bn: Boolean indicating if BatchNormalization is used. Default is False.
+    - momentum: Momentum for BatchNormalization. Default is 0.95.
+    - initialization: Weight initialization method. Options: 'orthogonal', 'normal', 'uniform'. Default is 'normal'.
+    """
     DEFAULTS = {
     'input_size': 6,
     'hidden_sizes': [256, 128, 64],
@@ -144,6 +209,15 @@ class Critic(nn.Module):
     
 
     def forward(self, x):
+        """
+        Forward pass through the Critic network.
+
+        Args:
+        - x: Input state tensor.
+
+        Returns:
+        - x: Estimated value of the input state.
+        """
         x = self.main_block(x)
         
         return self.output_layer(x)
